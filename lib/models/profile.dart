@@ -1,0 +1,24 @@
+class Profile {
+  final String id;
+  final String fullName;
+  final String role; // farmer | buyer | warehouse_owner | admin
+  final String language;
+  final String? region, phone, district, farmName;
+  final bool onboarded;
+  const Profile({required this.id, required this.fullName, required this.role, required this.language,
+    this.region, this.phone, this.district, this.farmName, required this.onboarded});
+
+  bool get isAdmin => role == 'admin';
+
+  factory Profile.fromMap(Map<String, dynamic> m) => Profile(
+        id: m['id'] as String,
+        fullName: (m['full_name'] as String?) ?? '',
+        role: (m['role'] as String?) ?? 'farmer',
+        language: (m['language'] as String?) ?? 'uz',
+        region: m['region'] as String?,
+        phone: m['phone'] as String?,
+        district: m['district'] as String?,
+        farmName: m['farm_name'] as String?,
+        onboarded: (m['onboarded'] as bool?) ?? false,
+      );
+}
