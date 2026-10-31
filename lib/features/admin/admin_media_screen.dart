@@ -25,20 +25,58 @@ class AdminMediaScreen extends ConsumerWidget {
     }
   }
 
-  Future<void> _edit(BuildContext context, WidgetRef ref, Map<String, dynamic>? row) async {
+  Future<void> _edit(
+    BuildContext context,
+    WidgetRef ref,
+    Map<String, dynamic>? row, {
+    bool replaceImage = false,
+  }) async {
     final uid = ref.read(sessionProvider).user?.id;
     if (uid == null) return;
+    final repo = ref.read(adminContentRepoProvider);
+    Map<String, Map<String, String>> targetOptions = const {};
+    if (_banners) {
+      try {
+        targetOptions = await repo.bannerTargetOptions(
+          language: Localizations.localeOf(context).languageCode,
+        );
+      } catch (error) {
+        if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(errText(context, error))),
+        );
+        return;
+      }
+    }
+    if (!context.mounted) return;
     XFile? picked;
-    if (row == null) {
+    if (row == null || replaceImage) {
       picked = await ImagePicker().pickImage(source: ImageSource.gallery, maxWidth: 1600, imageQuality: 85);
-      if (picked == null || !context.mounted) return;
+      if (!context.mounted || (picked == null && row == null)) return;
     }
     final fields = _banners
         ? [
             FieldSpec('title', context.tr('f_title'), initial: row?['title'] ?? '', required: true),
             FieldSpec('subtitle', context.tr('f_subtitle'), initial: row?['subtitle'] ?? ''),
-            FieldSpec('link_type', context.tr('link_type'), initial: row?['link_type'] ?? 'none', options: const ['none', 'product', 'category', 'url']),
-            FieldSpec('link_value', context.tr('link_value'), initial: row?['link_value'] ?? ''),
+            FieldSpec(
+              'link_type', context.tr('link_type'), initial: row?['link_type'] ?? 'none',
+              options: const ['none', 'product', 'category', 'url', 'agroapteka', 'warehouse', 'equipment', 'logistics'],
+              optionLabels: {
+                'none': context.tr('banner_target_none'),
+                'product': context.tr('banner_target_product'),
+                'category': context.tr('banner_target_category'),
+                'url': context.tr('banner_target_url'),
+                'agroapteka': context.tr('banner_target_agroapteka'),
+                'warehouse': context.tr('banner_target_warehouse'),
+                'equipment': context.tr('banner_target_equipment'),
+                'logistics': context.tr('banner_target_logistics'),
+              },
+            ),
+            FieldSpec(
+              'link_value', context.tr('banner_target_record'),
+              initial: row?['link_value'] ?? '',
+              dependsOn: 'link_type',
+              dependentOptions: targetOptions,
+            ),
             FieldSpec('sort_order', context.tr('sort_order'), initial: '${row?['sort_order'] ?? 0}', validate: intKey, keyboard: TextInputType.number),
             FieldSpec('starts_at', context.tr('starts_at'), initial: (row?['starts_at'] as String?)?.substring(0, 10) ?? '', validate: dateKey),
             FieldSpec('ends_at', context.tr('ends_at'), initial: (row?['ends_at'] as String?)?.substring(0, 10) ?? '', validate: dateKey),
@@ -51,22 +89,67 @@ class AdminMediaScreen extends ConsumerWidget {
           ];
     final r = await showFormDialog(context, context.tr(row == null ? 'add' : 'edit'), fields);
     if (r == null || !context.mounted) return;
-    final repo = ref.read(adminContentRepoProvider);
     final data = <String, dynamic>{
       'title': r['title'],
       if (_banners) ...{
-        'subtitle': r['subtitle']!.isEmpty ? null : r['subtitle'], 'link_type': r['link_type'], 'link_value': r['link_value']!.isEmpty ? null : r['link_value'],
+        'subtitle': r['subtitle']!.isEmpty ? null : r['subtitle'],
+        'link_type': r['link_type'],
+        'link_value': r['link_type'] == 'none' || r['link_value']!.isEmpty ? null : r['link_value'],
         'sort_order': int.tryParse(r['sort_order'] ?? '') ?? 0, 'starts_at': isoOrNull(r['starts_at'] ?? ''), 'ends_at': isoOrNull(r['ends_at'] ?? '', endOfDay: true),
       } else ...{
         'link_url': r['link_url']!.isEmpty ? null : r['link_url'], 'placement': r['placement'], 'ends_at': isoOrNull(r['ends_at'] ?? '', endOfDay: true),
       },
     };
+    if (_banners) {
+      final targetType = r['link_type']!;
+      final targetValue = r['link_value']!;
+      if (targetType == 'url') {
+        final uri = Uri.tryParse(targetValue);
+        if (uri == null || uri.scheme != 'https' || uri.host.isEmpty || uri.userInfo.isNotEmpty) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(context.tr('banner_target_url_invalid'))),
+          );
+          return;
+        }
+      } else if (targetType != 'none') {
+        if (targetValue.isEmpty) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(context.tr('banner_target_required'))),
+          );
+          return;
+        }
+        try {
+          final targetAvailable = await repo.bannerTargetExists(targetType, targetValue);
+          if (!context.mounted) return;
+          if (!targetAvailable) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(context.tr('banner_target_unavailable'))),
+            );
+            return;
+          }
+        } catch (error) {
+          if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(errText(context, error))),
+          );
+          return;
+        }
+      }
+      final start = DateTime.tryParse(r['starts_at'] ?? '');
+      final end = DateTime.tryParse(r['ends_at'] ?? '');
+      if (start != null && end != null && end.isBefore(start)) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(context.tr('banner_dates_invalid'))),
+        );
+        return;
+      }
+    }
     await _run(context, ref, () async {
       if (row == null) {
         final url = await ProductRepository().uploadImage(picked!, uid);
         await repo.insertRow(kind, {...data, 'image_url': url});
       } else {
-        await repo.updateRow(kind, 'id', row['id'] as String, data);
+        final update = {...data, if (picked != null) 'image_url': await ProductRepository().uploadImage(picked, uid)};
+        await repo.updateRow(kind, 'id', row['id'] as String, update);
       }
     });
   }
@@ -96,7 +179,40 @@ class AdminMediaScreen extends ConsumerWidget {
                       padding: const EdgeInsets.all(8),
                       child: Row(children: [
                         Expanded(child: Text('${b['title']}${_banners ? '' : ' · ${b['placement']}'}', style: const TextStyle(fontWeight: FontWeight.w700))),
+                        if (_banners)
+                          IconButton(
+                            tooltip: context.tr('preview'),
+                            icon: const Icon(Icons.visibility_outlined),
+                            onPressed: () => showDialog<void>(
+                              context: context,
+                              builder: (dialogContext) => AlertDialog(
+                                contentPadding: EdgeInsets.zero,
+                                clipBehavior: Clip.antiAlias,
+                                content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+                                  AspectRatio(aspectRatio: 3, child: ProductImage(b['image_url'] as String?)),
+                                  Padding(
+                                    padding: const EdgeInsets.all(16),
+                                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                                      Text(b['title'] as String? ?? '', style: Theme.of(dialogContext).textTheme.titleLarge),
+                                      if ((b['subtitle'] as String? ?? '').isNotEmpty) ...[
+                                        const SizedBox(height: 6), Text(b['subtitle'] as String),
+                                      ],
+                                    ]),
+                                  ),
+                                ]),
+                                actions: [
+                                  TextButton(onPressed: () => Navigator.pop(dialogContext),
+                                    child: Text(dialogContext.tr('close'))),
+                                ],
+                              ),
+                            ),
+                          ),
                         Switch(value: b['active'] as bool, onChanged: (v) => _run(context, ref, () => repo.updateRow(kind, 'id', b['id'] as String, {'active': v}))),
+                        IconButton(
+                          tooltip: context.tr('replace_image'),
+                          icon: const Icon(Icons.image_outlined),
+                          onPressed: () => _edit(context, ref, b, replaceImage: true),
+                        ),
                         IconButton(icon: const Icon(Icons.edit_outlined), onPressed: () => _edit(context, ref, b)),
                         IconButton(icon: const Icon(Icons.delete_outline), onPressed: () async {
                           if (await confirmDelete(context) && context.mounted) {

@@ -7,12 +7,15 @@ import 'strings/stage6_strings.dart';
 import 'strings/stage7_strings.dart';
 import 'strings/stage8_strings.dart';
 import 'strings/stage9_strings.dart';
+import 'strings/stage10_strings.dart';
+import 'strings/agroapteka_strings.dart';
+import 'strings/stage11_strings.dart';
 
 const supportedLangs = ['uz', 'ru', 'en'];
 
 class L10n {
   /// Har bir keyingi bosqich o'z matn faylini shu ro'yxatga qo'shadi.
-  static final List<Map<String, Map<String, String>>> _sources = [coreStrings, authStrings, marketStrings, stage5Strings, stage6Strings, stage7Strings, stage8Strings, stage9Strings];
+  static final List<Map<String, Map<String, String>>> _sources = [coreStrings, authStrings, marketStrings, stage5Strings, stage6Strings, stage7Strings, stage8Strings, stage9Strings, stage10Strings, agroaptekaStrings, stage11Strings];
 
   static final Map<String, Map<String, String>> all = _merge();
 

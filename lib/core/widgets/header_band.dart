@@ -11,7 +11,7 @@ class HeaderBand extends StatelessWidget {
     final dark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       width: double.infinity,
-      padding: EdgeInsets.fromLTRB(16, MediaQuery.of(context).padding.top + 8, 16, 14),
+      padding: EdgeInsets.fromLTRB(16, MediaQuery.of(context).padding.top + 4, 16, 10),
       decoration: BoxDecoration(
         color: dark ? AppColors.headerDark : AppColors.forest,
         borderRadius: const BorderRadius.vertical(bottom: Radius.circular(22)),

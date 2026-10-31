@@ -9,8 +9,10 @@ import '../features/market/market_screen.dart';
 import '../features/market/product_detail_screen.dart';
 import '../features/assistant/assistant_screen.dart';
 import '../features/inquiries/inquiries_screen.dart';
+import '../features/inquiries/chat_thread_screen.dart';
 import '../features/notifications/notifications_screen.dart';
 import '../features/warehouses/warehouse_detail_screen.dart';
+import '../features/warehouses/warehouse_listing_form_screen.dart';
 import '../features/warehouses/warehouses_screen.dart';
 import '../features/admin/admin_dashboard_screen.dart';
 import '../features/admin/admin_moderation_screen.dart';
@@ -21,8 +23,12 @@ import '../features/admin/admin_categories_screen.dart';
 import '../features/admin/admin_media_screen.dart';
 import '../features/admin/admin_reports_screen.dart';
 import '../features/admin/admin_settings_screen.dart';
+import '../features/admin/admin_services_screen.dart';
+import '../features/admin/admin_seller_verification_screen.dart';
 import '../features/planner/finance_screen.dart';
 import '../features/planner/goals_screen.dart';
+import '../features/planner/savings_goals_screen.dart';
+import '../features/planner/universal_goals_screen.dart';
 import 'shell/main_shell.dart';
 import '../features/auth/profile_setup_screen.dart';
 import '../features/auth/register_screen.dart';
@@ -31,6 +37,13 @@ import '../features/auth/session_controller.dart';
 import '../features/auth/welcome_screen.dart';
 import '../features/profile/profile_screen.dart';
 import '../features/settings/settings_screen.dart';
+import '../features/calculators/agro_calculators_screen.dart';
+import '../features/fieldbook/fieldbook_screen.dart';
+import '../features/weather/agro_weather_screen.dart';
+import '../features/services/service_listings_screen.dart';
+import '../features/services/service_listing_form_screen.dart';
+import '../features/passports/passports_screen.dart';
+import '../features/agroapteka/agroapteka_screens.dart';
 
 const _publicRoutes = ['/welcome', '/login', '/register', '/reset'];
 
@@ -67,14 +80,23 @@ final routerProvider = Provider<GoRouter>((ref) {
         routes: [
           GoRoute(path: '/', builder: (_, __) => const HomeScreen()),
           GoRoute(path: '/market', builder: (_, __) => const MarketScreen()),
-          GoRoute(path: '/assistant', builder: (_, __) => const AssistantScreen()),
-          GoRoute(path: '/goals', builder: (_, __) => const GoalsScreen()),
+          GoRoute(path: '/agroapteka', builder: (_, __) => const AgroaptekaScreen()),
+          GoRoute(path: '/agroapteka/my-inquiries', builder: (_, __) => const AgroCustomerInquiriesScreen()),
+          GoRoute(
+            path: '/assistant',
+            builder: (_, state) => AssistantScreen(mode: state.uri.queryParameters['mode'] ?? 'assistant'),
+          ),
           GoRoute(path: '/finance', builder: (_, __) => const FinanceScreen()),
         ],
       ),
+      GoRoute(path: '/goals', builder: (_, __) => const UniversalGoalsScreen()),
+      GoRoute(path: '/goals/savings', builder: (_, __) => const SavingsGoalsScreen()),
+      GoRoute(path: '/tasks', builder: (_, __) => const GoalsScreen()),
       GoRoute(path: '/warehouses', builder: (_, __) => const WarehousesScreen()),
+      GoRoute(path: '/warehouses/new', builder: (_, __) => const WarehouseListingFormScreen()),
       GoRoute(path: '/warehouse/:id', builder: (_, state) => WarehouseDetailScreen(id: state.pathParameters['id']!)),
       GoRoute(path: '/inquiries', builder: (_, __) => const InquiriesScreen()),
+      GoRoute(path: '/chat/:id', builder: (_, state) => ChatThreadScreen(inquiryId: state.pathParameters['id']!)),
       GoRoute(path: '/notifications', builder: (_, __) => const NotificationsScreen()),
       GoRoute(path: '/profile', builder: (_, __) => const ProfileScreen()),
       GoRoute(path: '/favorites', builder: (_, __) => const FavoritesScreen()),
@@ -89,8 +111,28 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/admin/reports', builder: (_, __) => const AdminReportsScreen()),
       GoRoute(path: '/admin/users', builder: (_, __) => const AdminUsersScreen()),
       GoRoute(path: '/admin/moderation', builder: (_, __) => const AdminModerationScreen()),
+      GoRoute(path: '/admin/services', builder: (_, __) => const AdminServicesScreen()),
+      GoRoute(path: '/admin/sellers', builder: (_, __) => const AdminSellerVerificationScreen()),
       GoRoute(path: '/product/:id', builder: (_, state) => ProductDetailScreen(id: state.pathParameters['id']!)),
+      GoRoute(path: '/agroapteka/store/:id', builder: (_, state) => AgroStoreScreen(id: state.pathParameters['id']!)),
+      GoRoute(path: '/agroapteka/chat/:id', builder: (_, state) => AgroInquiryChatScreen(inquiryId: state.pathParameters['id']!)),
+      GoRoute(path: '/agroapteka/manage', builder: (_, __) => const AgroOwnerScreen()),
+      GoRoute(path: '/agroapteka/manage/profile', builder: (_, __) => const AgroStoreFormScreen()),
+      GoRoute(path: '/agroapteka/manage/product/new', builder: (_, __) => const AgroProductFormScreen()),
+      GoRoute(path: '/agroapteka/manage/product/:id/edit', builder: (_, state) => AgroProductFormScreen(id: state.pathParameters['id'])),
+      GoRoute(path: '/admin/agroapteka', builder: (_, __) => const AgroAdminScreen()),
+      GoRoute(path: '/admin/agroapteka/categories', builder: (_, __) => const AgroCategoryAdminScreen()),
       GoRoute(path: '/settings', builder: (_, __) => const SettingsScreen()),
+      GoRoute(path: '/calculators', builder: (_, __) => const AgroCalculatorsScreen()),
+      GoRoute(path: '/fieldbook', builder: (_, __) => const FieldbookScreen()),
+      GoRoute(path: '/passports', builder: (_, __) => const PassportsScreen()),
+      GoRoute(path: '/passports/:id', builder: (_, state) => PassportsScreen(passportId: state.pathParameters['id']!)),
+      GoRoute(path: '/weather', builder: (_, __) => const AgroWeatherScreen()),
+      GoRoute(path: '/services/:type', builder: (_, state) => ServiceListingsScreen(type: state.pathParameters['type']!)),
+      GoRoute(path: '/service/:type/:id', builder: (_, state) => ServiceListingDetailScreen(
+        type: state.pathParameters['type']!, id: state.pathParameters['id']!,
+      )),
+      GoRoute(path: '/services/new/:type', builder: (_, state) => ServiceListingFormScreen(type: state.pathParameters['type']!)),
     ],
   );
 });

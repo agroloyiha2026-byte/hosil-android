@@ -51,7 +51,7 @@ class _S extends ConsumerState<RegisterScreen> {
             AppTextField(controller: _name, label: context.tr('full_name'), validator: tv(context, Validators.required), textInputAction: TextInputAction.next),
             const SizedBox(height: 14),
             DropdownButtonFormField<String>(
-              value: _role,
+              initialValue: _role,
               decoration: InputDecoration(labelText: context.tr('role'), border: OutlineInputBorder(borderRadius: BorderRadius.circular(14))),
               items: [for (final r in const ['farmer', 'buyer', 'warehouse_owner']) DropdownMenuItem(value: r, child: Text(context.tr('role_$r')))],
               onChanged: (v) => setState(() => _role = v ?? 'farmer'),

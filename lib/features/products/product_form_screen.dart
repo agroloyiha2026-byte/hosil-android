@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
@@ -8,6 +9,7 @@ import '../../core/widgets/widgets.dart';
 import '../auth/auth_widgets.dart';
 import '../auth/session_controller.dart';
 import '../market/market_providers.dart';
+import '../market/product_card.dart';
 import 'product_providers.dart';
 import 'product_repository.dart';
 
@@ -22,11 +24,16 @@ class ProductFormScreen extends ConsumerStatefulWidget {
 
 class _S extends ConsumerState<ProductFormScreen> {
   final _form = GlobalKey<FormState>();
-  final _title = TextEditingController(), _type = TextEditingController(), _price = TextEditingController();
-  final _qty = TextEditingController(), _region = TextEditingController(), _desc = TextEditingController();
+  final _title = TextEditingController(),
+      _type = TextEditingController(),
+      _price = TextEditingController();
+  final _qty = TextEditingController(),
+      _region = TextEditingController(),
+      _desc = TextEditingController();
   String? _category;
   String _currency = 'UZS', _unit = 'kg';
   String? _currentMain;
+  bool _hasExistingImages = false;
   List<XFile> _images = [];
   bool _busy = false, _loading = false;
   String? _err;
@@ -42,9 +49,17 @@ class _S extends ConsumerState<ProductFormScreen> {
     try {
       final p = await ref.read(marketRepositoryProvider).product(widget.id!);
       if (p != null && mounted) {
-        _title.text = p.title; _type.text = p.productType; _price.text = p.price.toString(); _qty.text = p.quantity.toString();
-        _region.text = p.region; _desc.text = p.description ?? '';
-        _category = p.category; _currency = p.currency; _unit = p.unit; _currentMain = p.imageUrl;
+        _title.text = p.title;
+        _type.text = p.productType;
+        _price.text = p.price.toString();
+        _qty.text = p.quantity.toString();
+        _region.text = p.region;
+        _desc.text = p.description ?? '';
+        _category = p.category;
+        _currency = p.currency;
+        _unit = p.unit;
+        _currentMain = p.imageUrl ?? p.images.firstOrNull;
+        _hasExistingImages = p.images.isNotEmpty;
       }
     } catch (e) {
       if (mounted) _err = errText(context, e);
@@ -55,32 +70,60 @@ class _S extends ConsumerState<ProductFormScreen> {
 
   @override
   void dispose() {
-    for (final c in [_title, _type, _price, _qty, _region, _desc]) { c.dispose(); }
+    for (final c in [_title, _type, _price, _qty, _region, _desc]) {
+      c.dispose();
+    }
     super.dispose();
   }
 
   Future<void> _pick() async {
-    final picked = await ImagePicker().pickMultiImage(maxWidth: 1600, imageQuality: 85);
+    final picked =
+        await ImagePicker().pickMultiImage(maxWidth: 1600, imageQuality: 85);
     final ok = <XFile>[];
     for (final f in picked.take(5)) {
-      if (imageContentType(f.name) != null && await f.length() <= maxImageBytes) ok.add(f);
+      if (imageContentType(f.name) != null && await f.length() <= maxImageBytes)
+        ok.add(f);
     }
-    if (mounted) setState(() { _images = ok; if (picked.isNotEmpty && ok.length < picked.take(5).length) _err = context.tr('bad_image'); });
+    if (mounted)
+      setState(() {
+        _images = ok;
+        if (picked.isNotEmpty && ok.length < picked.take(5).length)
+          _err = context.tr('bad_image');
+      });
   }
 
-  double _n(String s) => double.parse(s.replaceAll(' ', '').replaceAll(',', '.'));
+  double _n(String s) =>
+      double.parse(s.replaceAll(' ', '').replaceAll(',', '.'));
 
   Future<void> _submit() async {
     final uid = ref.read(sessionProvider).user?.id;
-    if (uid == null || _category == null || !_form.currentState!.validate()) return;
-    setState(() { _busy = true; _err = null; });
+    if (uid == null || _category == null || !_form.currentState!.validate())
+      return;
+    if (!hasRequiredListingImage(
+        hasExistingImage: _hasExistingImages && _currentMain != null,
+        selectedImageCount: _images.length)) {
+      setState(() => _err = context.tr('listing_image_required'));
+      return;
+    }
+    setState(() {
+      _busy = true;
+      _err = null;
+    });
     try {
       final repo = ref.read(productRepoProvider);
-      final urls = <String>[for (final f in _images) await repo.uploadImage(f, uid)];
+      final urls = <String>[
+        for (final f in _images) await repo.uploadImage(f, uid)
+      ];
       final data = {
-        'title': _title.text.trim(), 'category': _category, 'product_type': _type.text.trim().toLowerCase(),
-        'price': _n(_price.text), 'currency': _currency, 'unit': _unit, 'quantity': _n(_qty.text),
-        'region': _region.text.trim(), 'description': _desc.text.trim().isEmpty ? null : _desc.text.trim(),
+        'title': _title.text.trim(),
+        'category': _category,
+        'product_type': _type.text.trim().toLowerCase(),
+        'price': _n(_price.text),
+        'currency': _currency,
+        'unit': _unit,
+        'quantity': _n(_qty.text),
+        'region': _region.text.trim(),
+        'description': _desc.text.trim().isEmpty ? null : _desc.text.trim(),
       };
       final String pid;
       if (widget.id == null) {
@@ -91,7 +134,8 @@ class _S extends ConsumerState<ProductFormScreen> {
       }
       await repo.attachImages(pid, urls, setMain: _currentMain == null);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(context.tr('saved_ok'))));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(context.tr('saved_ok'))));
         Navigator.of(context).pop();
       }
     } catch (e) {
@@ -104,49 +148,186 @@ class _S extends ConsumerState<ProductFormScreen> {
   @override
   Widget build(BuildContext context) {
     final lang = Localizations.localeOf(context).languageCode;
-    final cats = ref.watch(categoriesProvider).valueOrNull ?? const [];
+    final categories = ref.watch(categoriesProvider);
+    final cats = categories.valueOrNull ?? const [];
     if (_category == null && cats.isNotEmpty) _category = cats.first.slug;
     return Scaffold(
-      appBar: AppBar(title: Text(context.tr(widget.id == null ? 'add_product' : 'edit_product'))),
+      appBar: AppBar(
+          title: Text(
+              context.tr(widget.id == null ? 'add_product' : 'edit_product'))),
       body: _loading
           ? const LoadingView()
           : ListView(padding: const EdgeInsets.all(16), children: [
               Form(
                 key: _form,
                 child: Column(children: [
-                  AppTextField(controller: _title, label: context.tr('f_title'), validator: tv(context, Validators.required)),
+                  AppTextField(
+                      controller: _title,
+                      label: context.tr('f_title'),
+                      validator: tv(context, Validators.required)),
                   const SizedBox(height: 14),
-                  DropdownButtonFormField<String>(
-                    value: cats.any((c) => c.slug == _category) ? _category : null,
-                    decoration: InputDecoration(labelText: context.tr('f_category'), border: OutlineInputBorder(borderRadius: BorderRadius.circular(14))),
-                    items: [for (final c in cats) DropdownMenuItem(value: c.slug, child: Text('${c.icon ?? ''} ${c.name(lang)}'.trim()))],
-                    onChanged: (v) => setState(() => _category = v),
+                  FormField<String>(
+                    initialValue:
+                        cats.any((c) => c.slug == _category) ? _category : null,
+                    validator: (value) =>
+                        value == null ? context.tr('categories_empty') : null,
+                    builder: (field) => Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Align(
+                            alignment: Alignment.centerLeft,
+                            child: Text(context.tr('f_category'))),
+                        const SizedBox(height: 8),
+                        categories.when(
+                          loading: () => const LoadingView(),
+                          error: (error, _) => ErrorView(
+                            error: error,
+                            onRetry: () => ref.invalidate(categoriesProvider),
+                          ),
+                          data: (items) => items.isEmpty
+                              ? EmptyView(
+                                  message: context.tr('categories_empty'))
+                              : Wrap(
+                                  spacing: 8,
+                                  runSpacing: 8,
+                                  children: [
+                                    for (final category in items)
+                                      ChoiceChip(
+                                        avatar: category.icon == null ||
+                                                category.icon!.isEmpty
+                                            ? null
+                                            : Text(category.icon!),
+                                        label: Text(category.name(lang)),
+                                        selected: field.value == category.slug,
+                                        onSelected: (selected) {
+                                          if (!selected) return;
+                                          setState(
+                                              () => _category = category.slug);
+                                          field.didChange(category.slug);
+                                        },
+                                      ),
+                                  ],
+                                ),
+                        ),
+                        if (field.hasError)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 6),
+                            child: Text(field.errorText!,
+                                style: TextStyle(
+                                    color:
+                                        Theme.of(context).colorScheme.error)),
+                          ),
+                      ],
+                    ),
                   ),
                   const SizedBox(height: 14),
-                  AppTextField(controller: _type, label: context.tr('f_type'), validator: tv(context, Validators.required)),
+                  AppTextField(
+                      controller: _type,
+                      label: context.tr('f_type'),
+                      validator: tv(context, Validators.required)),
                   const SizedBox(height: 14),
                   Row(children: [
-                    Expanded(flex: 3, child: AppTextField(controller: _price, label: context.tr('f_price'), keyboardType: TextInputType.number, validator: tv(context, Validators.positive))),
+                    Expanded(
+                        flex: 3,
+                        child: AppTextField(
+                            controller: _price,
+                            label: context.tr('f_price'),
+                            keyboardType: TextInputType.number,
+                            validator: tv(context, Validators.positive))),
                     const SizedBox(width: 8),
-                    Expanded(flex: 2, child: DropdownButtonFormField<String>(value: _currency, items: const [DropdownMenuItem(value: 'UZS', child: Text('UZS')), DropdownMenuItem(value: 'USD', child: Text('USD'))], onChanged: (v) => setState(() => _currency = v ?? 'UZS'))),
+                    Expanded(
+                        flex: 2,
+                        child: DropdownButtonFormField<String>(
+                            initialValue: _currency,
+                            items: const [
+                              DropdownMenuItem(
+                                  value: 'UZS', child: Text('UZS')),
+                              DropdownMenuItem(value: 'USD', child: Text('USD'))
+                            ],
+                            onChanged: (v) =>
+                                setState(() => _currency = v ?? 'UZS'))),
                   ]),
                   const SizedBox(height: 14),
                   Row(children: [
-                    Expanded(flex: 3, child: AppTextField(controller: _qty, label: context.tr('f_quantity'), keyboardType: TextInputType.number, validator: tv(context, Validators.positive))),
+                    Expanded(
+                        flex: 3,
+                        child: AppTextField(
+                            controller: _qty,
+                            label: context.tr('f_quantity'),
+                            keyboardType: TextInputType.number,
+                            validator: tv(context, Validators.positive))),
                     const SizedBox(width: 8),
-                    Expanded(flex: 2, child: DropdownButtonFormField<String>(value: _unit, items: [for (final u in const ['kg', 'tonna', 'dona', 'litr']) DropdownMenuItem(value: u, child: Text(u))], onChanged: (v) => setState(() => _unit = v ?? 'kg'))),
+                    Expanded(
+                        flex: 2,
+                        child: DropdownButtonFormField<String>(
+                            initialValue: _unit,
+                            items: [
+                              for (final u in const [
+                                'kg',
+                                'tonna',
+                                'dona',
+                                'litr'
+                              ])
+                                DropdownMenuItem(value: u, child: Text(u))
+                            ],
+                            onChanged: (v) =>
+                                setState(() => _unit = v ?? 'kg'))),
                   ]),
                   const SizedBox(height: 14),
-                  RegionDropdown(label: context.tr('f_region'), required: true, value: _region.text.isEmpty ? null : _region.text, onChanged: (v) => setState(() => _region.text = v ?? '')),
+                  RegionDropdown(
+                      label: context.tr('f_region'),
+                      required: true,
+                      value: _region.text.isEmpty ? null : _region.text,
+                      onChanged: (v) => setState(() => _region.text = v ?? '')),
                   const SizedBox(height: 14),
-                  AppTextField(controller: _desc, label: context.tr('f_description'), maxLines: 3),
+                  AppTextField(
+                      controller: _desc,
+                      label: context.tr('f_description'),
+                      maxLines: 3),
                 ]),
               ),
               const SizedBox(height: 14),
-              AppButton(label: _images.isEmpty ? context.tr('pick_images') : '${_images.length} ${context.tr('images_chosen')}', outlined: true, icon: Icons.photo_library_outlined, onPressed: _pick),
+              if (_images.isNotEmpty || _currentMain != null) ...[
+                Stack(
+                  alignment: Alignment.topRight,
+                  children: [
+                    SizedBox(
+                      height: 150,
+                      width: double.infinity,
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: _images.isNotEmpty
+                            ? Image.file(File(_images.first.path),
+                                fit: BoxFit.cover)
+                            : ProductImage(_currentMain),
+                      ),
+                    ),
+                    IconButton.filledTonal(
+                      tooltip: context.tr('remove_image'),
+                      onPressed: () => setState(() {
+                        _images = [];
+                        _currentMain = null;
+                        _hasExistingImages = false;
+                      }),
+                      icon: const Icon(Icons.close),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+              ],
+              AppButton(
+                  label: _images.isEmpty
+                      ? context.tr('pick_images')
+                      : '${_images.length} ${context.tr('images_chosen')}',
+                  outlined: true,
+                  icon: Icons.photo_library_outlined,
+                  onPressed: _pick),
               const SizedBox(height: 16),
               ErrorText(_err),
-              AppButton(label: context.tr('save'), onPressed: _submit, loading: _busy),
+              AppButton(
+                  label: context.tr('save'),
+                  onPressed: _submit,
+                  loading: _busy),
             ]),
     );
   }

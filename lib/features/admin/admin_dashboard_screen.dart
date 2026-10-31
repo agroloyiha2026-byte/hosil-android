@@ -38,6 +38,12 @@ class AdminDashboardScreen extends ConsumerWidget {
             const SizedBox(height: 16),
             AppButton(label: context.tr('a_moderation'), icon: Icons.fact_check_outlined, onPressed: () => context.push('/admin/moderation')),
             const SizedBox(height: 10),
+            AppButton(label: context.tr('admin_services'), icon: Icons.local_shipping_outlined, outlined: true, onPressed: () => context.push('/admin/services')),
+            const SizedBox(height: 10),
+            AppButton(label: context.tr('agro_moderation'), icon: Icons.local_pharmacy_outlined, outlined: true, onPressed: () => context.push('/admin/agroapteka')),
+            const SizedBox(height: 10),
+            AppButton(label: context.tr('seller_verification_request'), icon: Icons.verified_user_outlined, outlined: true, onPressed: () => context.push('/admin/sellers')),
+            const SizedBox(height: 10),
             AppButton(label: context.tr('a_users'), icon: Icons.manage_accounts_outlined, outlined: true, onPressed: () => context.push('/admin/users')),
             for (final t in const [
               ('/admin/categories', 'a_categories', Icons.category_outlined), ('/admin/banners', 'a_banners', Icons.view_carousel_outlined),

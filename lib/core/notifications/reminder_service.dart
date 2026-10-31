@@ -18,7 +18,14 @@ class ReminderService {
       tzdata.initializeTimeZones();
       tz.setLocalLocation(tz.getLocation('Asia/Tashkent'));
       await _plugin.initialize(const InitializationSettings(android: AndroidInitializationSettings('@mipmap/ic_launcher')));
-      await _plugin.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()?.requestNotificationsPermission();
+      final android = _plugin.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
+      await android?.createNotificationChannel(const AndroidNotificationChannel(
+        'hosilx_main',
+        'Hosil X',
+        description: 'Maqsad eslatmalari va yangiliklar',
+        importance: Importance.high,
+      ));
+      await android?.requestNotificationsPermission();
       _ready = true;
     } catch (_) {
       _ready = false; // bildirishnomalar ishlamasa ham ilova ochilaveradi

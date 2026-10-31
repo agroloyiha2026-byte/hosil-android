@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../app/localization/l10n.dart';
 import '../../core/format.dart';
 import '../../core/widgets/widgets.dart';
@@ -62,6 +63,12 @@ class _List extends ConsumerWidget {
               if (q.offeredPrice != null) Text('${fmtNum(q.offeredPrice!)} ${q.currency}'),
               if ((q.message ?? '').isNotEmpty) Text(q.message!),
               Text(q.createdAt.toLocal().toString().substring(0, 16), style: Theme.of(context).textTheme.bodySmall),
+              const SizedBox(height: 8),
+              OutlinedButton.icon(
+                onPressed: () => context.push('/chat/${q.id}'),
+                icon: const Icon(Icons.chat_outlined),
+                label: Text(context.tr('chat_open')),
+              ),
               if (received && q.status == 'new') ...[
                 const SizedBox(height: 8),
                 Row(children: [

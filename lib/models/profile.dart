@@ -3,10 +3,10 @@ class Profile {
   final String fullName;
   final String role; // farmer | buyer | warehouse_owner | admin
   final String language;
-  final String? region, phone, district, farmName;
+  final String? region, phone, district, farmName, avatarUrl;
   final bool onboarded;
   const Profile({required this.id, required this.fullName, required this.role, required this.language,
-    this.region, this.phone, this.district, this.farmName, required this.onboarded});
+    this.region, this.phone, this.district, this.farmName, this.avatarUrl, required this.onboarded});
 
   bool get isAdmin => role == 'admin';
 
@@ -19,6 +19,7 @@ class Profile {
         phone: m['phone'] as String?,
         district: m['district'] as String?,
         farmName: m['farm_name'] as String?,
+        avatarUrl: m['avatar_url'] as String?,
         onboarded: (m['onboarded'] as bool?) ?? false,
       );
 }

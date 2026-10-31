@@ -20,7 +20,14 @@ class MarketRepository {
   }
 
   Future<List<BannerItem>> banners() async {
-    final r = await _c.from('banners').select().eq('active', true).order('sort_order'); // sanalarni RLS filtrlaydi
+    final now = DateTime.now().toUtc().toIso8601String();
+    final r = await _c
+        .from('banners')
+        .select()
+        .eq('active', true)
+        .or('starts_at.is.null,starts_at.lte.$now')
+        .or('ends_at.is.null,ends_at.gt.$now')
+        .order('sort_order');
     return (r as List).map((e) => BannerItem.fromMap(e as Map<String, dynamic>)).toList();
   }
 
@@ -45,6 +52,24 @@ class MarketRepository {
   Future<Product?> product(String id) async {
     final r = await _c.from('products').select('$_cols,product_images(url,sort_order)').eq('id', id).maybeSingle();
     return r == null ? null : Product.fromMap(r);
+  }
+
+  Future<List<Product>> similarProducts({required String productId, required String category}) async {
+    final r = await _c
+        .from('products')
+        .select(_cols)
+        .eq('status', 'active')
+        .eq('category', category)
+        .neq('id', productId)
+        .order('created_at', ascending: false)
+        .limit(8);
+    return (r as List).map((e) => Product.fromMap(e as Map<String, dynamic>)).toList();
+  }
+
+  Future<void> reportProduct({required String productId, required String reason}) async {
+    final cleanReason = reason.trim();
+    if (cleanReason.isEmpty) throw ArgumentError.value(reason, 'reason', 'Report reason cannot be empty');
+    await _c.from('reports').insert({'product_id': productId, 'reason': cleanReason});
   }
 
   Future<({String? name, String? region})> seller(String id) async {

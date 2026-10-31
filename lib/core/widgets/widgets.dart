@@ -23,7 +23,7 @@ class AppCard extends StatelessWidget {
           padding: padding,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: s.onSurface.withOpacity(0.08)),
+            border: Border.all(color: s.onSurface.withValues(alpha: 0.08)),
           ),
           child: child,
         ),
@@ -80,7 +80,7 @@ class _AppTextFieldState extends State<AppTextField> {
   Widget build(BuildContext context) {
     final s = Theme.of(context).colorScheme;
     final border = OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: s.onSurface.withOpacity(0.15)));
+        borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: s.onSurface.withValues(alpha: 0.15)));
     return TextFormField(
       controller: widget.controller,
       validator: widget.validator,

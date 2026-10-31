@@ -5,15 +5,112 @@ import '../../app/localization/l10n.dart';
 import '../../core/format.dart';
 import '../../core/widgets/widgets.dart';
 import '../../models/stage5_models.dart';
+import '../auth/auth_widgets.dart';
 import '../market/product_card.dart';
 import '../stage5_providers.dart';
+import 'warehouse_repository.dart' show WarehouseFilters;
 
 class WarehousesScreen extends ConsumerWidget {
   const WarehousesScreen({super.key});
 
+  Future<void> _showFilters(BuildContext context, WidgetRef ref) async {
+    final filters = ref.read(warehouseFiltersProvider);
+    final region = TextEditingController(text: filters.region ?? '');
+    final product = TextEditingController(text: filters.acceptedProduct ?? '');
+    final capacity = TextEditingController(text: filters.minCapacityTons?.toString() ?? '');
+    final free = TextEditingController(text: filters.minFreeTons?.toString() ?? '');
+    final price = TextEditingController(text: filters.maxPricePerTonMonth?.toString() ?? '');
+    var storageType = filters.storageType;
+    String? error;
+    double? parse(TextEditingController controller) {
+      if (controller.text.trim().isEmpty) return null;
+      final value = double.tryParse(controller.text.trim().replaceAll(' ', '').replaceAll(',', '.'));
+      return value != null && value.isFinite && value >= 0 ? value : double.nan;
+    }
+
+    try {
+      await showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        useSafeArea: true,
+        builder: (sheetContext) => StatefulBuilder(
+          builder: (sheetContext, setSheetState) => Padding(
+            padding: EdgeInsets.fromLTRB(16, 16, 16, MediaQuery.of(sheetContext).viewInsets.bottom + 16),
+            child: SingleChildScrollView(
+              child: Column(mainAxisSize: MainAxisSize.min, children: [
+                Text(sheetContext.tr('filters'), style: Theme.of(sheetContext).textTheme.titleLarge),
+                const SizedBox(height: 12),
+                TextField(controller: region, decoration: InputDecoration(labelText: sheetContext.tr('region'))),
+                const SizedBox(height: 10),
+                DropdownButtonFormField<String?>(
+                  initialValue: storageType,
+                  decoration: InputDecoration(labelText: sheetContext.tr('storage_type')),
+                  items: [
+                    DropdownMenuItem<String?>(value: null, child: Text(sheetContext.tr('all'))),
+                    for (final type in const ['cold', 'dry', 'vegetable', 'grain', 'other'])
+                      DropdownMenuItem<String?>(value: type, child: Text(sheetContext.tr('st_$type'))),
+                  ],
+                  onChanged: (value) => setSheetState(() => storageType = value),
+                ),
+                const SizedBox(height: 10),
+                TextField(controller: product, decoration: InputDecoration(labelText: sheetContext.tr('product_type'))),
+                const SizedBox(height: 10),
+                TextField(controller: capacity, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: InputDecoration(labelText: sheetContext.tr('capacity'))),
+                const SizedBox(height: 10),
+                TextField(controller: free, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: InputDecoration(labelText: sheetContext.tr('free_space'))),
+                const SizedBox(height: 10),
+                TextField(controller: price, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: InputDecoration(labelText: sheetContext.tr('warehouse_price_optional'))),
+                if (error != null) ErrorText(error),
+                const SizedBox(height: 12),
+                Row(children: [
+                  Expanded(child: TextButton(onPressed: () {
+                    ref.read(warehouseFiltersProvider.notifier).state = const WarehouseFilters();
+                    ref.invalidate(warehousesProvider);
+                    Navigator.pop(sheetContext);
+                  }, child: Text(sheetContext.tr('reset')))),
+                  Expanded(child: FilledButton(onPressed: () {
+                    final parsedCapacity = parse(capacity);
+                    final parsedFree = parse(free);
+                    final parsedPrice = parse(price);
+                    if ([parsedCapacity, parsedFree, parsedPrice].any((value) => value?.isNaN ?? false)) {
+                      setSheetState(() => error = sheetContext.tr('warehouse_invalid_number'));
+                      return;
+                    }
+                    ref.read(warehouseFiltersProvider.notifier).state = WarehouseFilters(
+                      region: region.text.trim().isEmpty ? null : region.text.trim(),
+                      storageType: storageType,
+                      acceptedProduct: product.text.trim().isEmpty ? null : product.text.trim(),
+                      minCapacityTons: parsedCapacity,
+                      minFreeTons: parsedFree,
+                      maxPricePerTonMonth: parsedPrice,
+                    );
+                    ref.invalidate(warehousesProvider);
+                    Navigator.pop(sheetContext);
+                  }, child: Text(sheetContext.tr('apply')))),
+                ]),
+              ]),
+            ),
+          ),
+        ),
+      );
+    } finally {
+      region.dispose();
+      product.dispose();
+      capacity.dispose();
+      free.dispose();
+      price.dispose();
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) => Scaffold(
-        appBar: AppBar(title: Text(context.tr('warehouses'))),
+        appBar: AppBar(title: Text(context.tr('warehouses')), actions: [
+          IconButton(
+            tooltip: context.tr('filters'),
+            onPressed: () => _showFilters(context, ref),
+            icon: Badge(isLabelVisible: ref.watch(warehouseFiltersProvider).hasActive, child: const Icon(Icons.tune)),
+          ),
+        ]),
         body: Column(children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),

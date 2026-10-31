@@ -29,7 +29,9 @@ class _S extends State<WelcomeScreen> {
           padding: const EdgeInsets.all(24),
           child: Column(children: [
             const SizedBox(height: 24),
-            Text('🌾 ${context.tr('welcome_title')}', textAlign: TextAlign.center, style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800)),
+            Image.asset('assets/branding/hosil_x_app_icon.png', width: 64, height: 64, fit: BoxFit.cover),
+            const SizedBox(height: 8),
+            Text(context.tr('welcome_title'), textAlign: TextAlign.center, style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800)),
             const SizedBox(height: 8),
             Text(context.tr('welcome_sub'), textAlign: TextAlign.center),
             Expanded(
@@ -49,7 +51,7 @@ class _S extends State<WelcomeScreen> {
             Row(mainAxisAlignment: MainAxisAlignment.center, children: [
               for (var k = 0; k < _slides.length; k++)
                 AnimatedContainer(duration: const Duration(milliseconds: 200), margin: const EdgeInsets.all(4), width: k == _i ? 22 : 8, height: 8,
-                    decoration: BoxDecoration(borderRadius: BorderRadius.circular(8), color: k == _i ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.primary.withOpacity(0.25))),
+                    decoration: BoxDecoration(borderRadius: BorderRadius.circular(8), color: k == _i ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.primary.withValues(alpha: 0.25))),
             ]),
             const SizedBox(height: 20),
             AppButton(

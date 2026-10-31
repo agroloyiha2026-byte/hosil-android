@@ -6,7 +6,7 @@ plugins {
 
 android {
     namespace = "uz.hosilx.hosilx"
-    compileSdk = flutter.compileSdkVersion
+    compileSdk = 36
     ndkVersion = flutter.ndkVersion
 
     compileOptions {

@@ -16,22 +16,35 @@ String? isoOrNull(String v, {bool endOfDay = false}) {
 class FieldSpec {
   final String key, label, initial;
   final List<String>? options;
+  final Map<String, String>? optionLabels;
+  final String? dependsOn;
+  final Map<String, Map<String, String>>? dependentOptions;
   final bool required;
   final String? Function(String?)? validate;
   final TextInputType? keyboard;
-  const FieldSpec(this.key, this.label, {this.initial = '', this.options, this.required = false, this.validate, this.keyboard});
+  const FieldSpec(this.key, this.label, {this.initial = '', this.options, this.optionLabels,
+    this.dependsOn, this.dependentOptions, this.required = false, this.validate, this.keyboard});
 }
 
 /// Oddiy forma oynasi: {kalit: qiymat} qaytaradi, bekor qilinsa null.
 Future<Map<String, String>?> showFormDialog(BuildContext context, String title, List<FieldSpec> fields) {
-  final ctrls = {
-    for (final f in fields)
-      f.key: TextEditingController(text: (f.options != null && !f.options!.contains(f.initial)) ? f.options!.first : f.initial)
-  };
+  final ctrls = <String, TextEditingController>{};
+  for (final field in fields) {
+    var value = field.initial;
+    if (field.options != null && !field.options!.contains(value)) value = field.options!.first;
+    if (field.dependentOptions != null) {
+      final parentValue = ctrls[field.dependsOn]?.text;
+      final available = parentValue == null ? null : field.dependentOptions![parentValue];
+      if (parentValue == null || (available != null && !available.containsKey(value))) {
+        value = '';
+      }
+    }
+    ctrls[field.key] = TextEditingController(text: value);
+  }
   final form = GlobalKey<FormState>();
   return showDialog<Map<String, String>>(
     context: context,
-    builder: (ctx) => AlertDialog(
+    builder: (ctx) => StatefulBuilder(builder: (ctx, setDialogState) => AlertDialog(
       title: Text(title),
       content: SingleChildScrollView(
         child: Form(
@@ -40,11 +53,40 @@ Future<Map<String, String>?> showFormDialog(BuildContext context, String title, 
             for (final f in fields)
               Padding(
                 padding: const EdgeInsets.only(bottom: 10),
-                child: f.options != null
-                    ? DropdownButtonFormField<String>(
-                        value: ctrls[f.key]!.text, decoration: InputDecoration(labelText: f.label),
-                        items: [for (final o in f.options!) DropdownMenuItem(value: o, child: Text(o))],
-                        onChanged: (v) => ctrls[f.key]!.text = v ?? '')
+                child: f.options != null || f.dependentOptions?.containsKey(ctrls[f.dependsOn]?.text) == true
+                    ? Builder(builder: (context) {
+                        final dynamicOptions = f.dependentOptions?[ctrls[f.dependsOn]?.text];
+                        final keys = f.options ?? dynamicOptions?.keys.toList() ?? const <String>[];
+                        final value = keys.contains(ctrls[f.key]!.text) ? ctrls[f.key]!.text : null;
+                        return DropdownButtonFormField<String>(
+                          value: value,
+                          isExpanded: true,
+                          decoration: InputDecoration(labelText: f.label),
+                          hint: Text(ctx.tr(keys.isEmpty ? 'banner_target_empty' : 'banner_target_select')),
+                          items: [
+                            for (final option in keys)
+                              DropdownMenuItem(
+                                value: option,
+                                child: Text(f.optionLabels?[option] ?? dynamicOptions?[option] ?? option),
+                              ),
+                          ],
+                          validator: (selected) {
+                            if (f.required && (selected == null || selected.isEmpty)) return ctx.tr('v_required');
+                            final key = f.validate?.call(selected);
+                            return key == null ? null : ctx.tr(key);
+                          },
+                          onChanged: (next) {
+                            ctrls[f.key]!.text = next ?? '';
+                            for (final dependent in fields.where((field) => field.dependsOn == f.key)) {
+                              final available = dependent.dependentOptions?[next];
+                              if (available == null || !available.containsKey(ctrls[dependent.key]!.text)) {
+                                ctrls[dependent.key]!.clear();
+                              }
+                            }
+                            setDialogState(() {});
+                          },
+                        );
+                      })
                     : TextFormField(
                         controller: ctrls[f.key], keyboardType: f.keyboard, decoration: InputDecoration(labelText: f.label),
                         validator: (v) {
@@ -65,8 +107,12 @@ Future<Map<String, String>?> showFormDialog(BuildContext context, String title, 
           child: Text(ctx.tr('save')),
         ),
       ],
-    ),
-  );
+    )),
+  ).whenComplete(() {
+    for (final controller in ctrls.values) {
+      controller.dispose();
+    }
+  });
 }
 
 Future<bool> confirmDelete(BuildContext context) async =>

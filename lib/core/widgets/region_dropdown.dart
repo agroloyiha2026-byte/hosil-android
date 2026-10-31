@@ -14,7 +14,7 @@ class RegionDropdown extends StatelessWidget {
   Widget build(BuildContext context) {
     final lang = Localizations.localeOf(context).languageCode;
     return DropdownButtonFormField<String>(
-      value: (value != null && (regionsUz.contains(value) || (allowAll && value == ''))) ? value : null,
+      initialValue: (value != null && (regionsUz.contains(value) || (allowAll && value == ''))) ? value : null,
       isExpanded: true,
       decoration: InputDecoration(labelText: label, border: OutlineInputBorder(borderRadius: BorderRadius.circular(14))),
       items: [

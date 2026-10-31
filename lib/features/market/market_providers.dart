@@ -107,3 +107,7 @@ final productDetailProvider = FutureProvider.autoDispose.family<ProductDetail?, 
   final s = await repo.seller(p.sellerId);
   return ProductDetail(p, s.name, s.region);
 });
+
+final similarProductsProvider = FutureProvider.autoDispose.family<List<Product>, ({String productId, String category})>(
+  (ref, args) => ref.read(marketRepositoryProvider).similarProducts(productId: args.productId, category: args.category),
+);

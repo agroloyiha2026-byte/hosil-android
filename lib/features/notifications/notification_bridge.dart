@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../app/localization/l10n.dart';
 import '../../core/notifications/reminder_service.dart';
+import '../../core/notifications/push_service.dart';
 import '../../core/services/supabase_service.dart';
 import '../auth/session_controller.dart';
 import '../settings/settings_controller.dart';
@@ -26,6 +27,7 @@ final realtimeBridgeProvider = Provider<void>((ref) {
     filter: PostgresChangeFilter(type: PostgresChangeFilterType.eq, column: 'user_id', value: uid),
     callback: (payload) {
       final r = payload.newRecord;
+      if (!PushService.claimNotification(r['id']?.toString())) return;
       final lang = ref.read(settingsProvider).locale.languageCode;
       ReminderService.show(L10n.tr(lang, 'notif_${r['title']}'), r['body'] as String?);
       ref.invalidate(unreadCountProvider);

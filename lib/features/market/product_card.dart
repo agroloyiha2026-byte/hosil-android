@@ -12,10 +12,26 @@ class ProductImage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bg = Theme.of(context).colorScheme.primaryContainer;
-    final placeholder = Container(color: bg, alignment: Alignment.center, child: const Text('🌿', style: TextStyle(fontSize: 40)));
-    if (url == null) return placeholder;
-    return Image.network(url!, fit: fit, errorBuilder: (_, __, ___) => placeholder,
-        loadingBuilder: (c, child, p) => p == null ? child : Container(color: bg));
+    final placeholder = Container(
+      color: bg,
+      alignment: Alignment.center,
+      child: Icon(Icons.eco_outlined, size: 34, color: Theme.of(context).colorScheme.primary),
+    );
+    final uri = url == null ? null : Uri.tryParse(url!.trim());
+    if (uri == null || !const {'http', 'https'}.contains(uri.scheme) || uri.host.isEmpty) return placeholder;
+    return ColoredBox(
+      color: bg,
+      child: Image.network(uri.toString(), key: ValueKey(uri.toString()), fit: fit,
+        errorBuilder: (_, __, ___) => placeholder,
+        gaplessPlayback: false,
+        filterQuality: FilterQuality.medium,
+        loadingBuilder: (c, child, p) => p == null
+            ? child
+            : Container(color: bg, alignment: Alignment.center,
+                child: const SizedBox(width: 22, height: 22,
+                    child: CircularProgressIndicator(strokeWidth: 2))),
+      ),
+    );
   }
 }
 

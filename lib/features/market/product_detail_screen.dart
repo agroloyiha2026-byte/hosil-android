@@ -5,12 +5,59 @@ import '../../core/format.dart';
 import '../../core/widgets/widgets.dart';
 import '../auth/auth_widgets.dart';
 import '../auth/session_controller.dart';
+import '../profile/seller_verification.dart';
 import 'market_providers.dart';
 import 'product_card.dart';
 
 class ProductDetailScreen extends ConsumerWidget {
   final String id;
   const ProductDetailScreen({super.key, required this.id});
+
+  void _report(BuildContext context, WidgetRef ref, String productId) {
+    final reason = TextEditingController();
+    var busy = false;
+    String? error;
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (sheetContext) => StatefulBuilder(
+        builder: (sheetContext, setSheetState) => Padding(
+          padding: EdgeInsets.fromLTRB(16, 16, 16, MediaQuery.of(sheetContext).viewInsets.bottom + 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(sheetContext.tr('report_product'), style: Theme.of(sheetContext).textTheme.titleLarge),
+              const SizedBox(height: 12),
+              AppTextField(controller: reason, label: sheetContext.tr('report_reason'), maxLines: 3),
+              if (error != null) ...[const SizedBox(height: 8), ErrorText(error)],
+              const SizedBox(height: 12),
+              AppButton(
+                label: sheetContext.tr('send_report'),
+                loading: busy,
+                onPressed: () async {
+                  if (reason.text.trim().isEmpty) {
+                    setSheetState(() => error = sheetContext.tr('report_reason_required'));
+                    return;
+                  }
+                  setSheetState(() { busy = true; error = null; });
+                  try {
+                    await ref.read(marketRepositoryProvider).reportProduct(productId: productId, reason: reason.text);
+                    if (sheetContext.mounted) Navigator.pop(sheetContext);
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(context.tr('report_sent'))));
+                    }
+                  } catch (e) {
+                    if (sheetContext.mounted) setSheetState(() { busy = false; error = errText(sheetContext, e); });
+                  }
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 
   void _inquiry(BuildContext context, WidgetRef ref, String productId) {
     final uid = ref.read(sessionProvider).user?.id;
@@ -55,6 +102,12 @@ class ProductDetailScreen extends ConsumerWidget {
     final favs = ref.watch(favoritesProvider);
     return Scaffold(
       appBar: AppBar(actions: [
+        if (async.valueOrNull?.product.sellerId != uid)
+          IconButton(
+            tooltip: context.tr('report_product'),
+            icon: const Icon(Icons.flag_outlined),
+            onPressed: () => _report(context, ref, id),
+          ),
         IconButton(
           icon: Icon(favs.contains(id) ? Icons.favorite : Icons.favorite_border),
           onPressed: () async {
@@ -98,11 +151,46 @@ class ProductDetailScreen extends ConsumerWidget {
                 Text(context.tr('seller'), style: Theme.of(context).textTheme.bodySmall),
                 Text((d.sellerName ?? '').isEmpty ? '—' : d.sellerName!, style: const TextStyle(fontWeight: FontWeight.w700)),
                 if (d.sellerRegion != null) Text('📍 ${d.sellerRegion}', style: Theme.of(context).textTheme.bodySmall),
+                if (ref.watch(sellerVerificationStatusProvider(p.sellerId)).valueOrNull == 'verified')
+                  Chip(
+                    avatar: const Icon(Icons.verified, size: 16),
+                    label: Text(context.tr('seller_verified')),
+                    visualDensity: VisualDensity.compact,
+                  ),
               ])),
             ])),
             const SizedBox(height: 16),
-            if (uid == p.sellerId) Text(context.tr('own_product'), textAlign: TextAlign.center)
-            else AppButton(label: context.tr('send_inquiry'), icon: Icons.mail_outline, onPressed: () => _inquiry(context, ref, p.id)),
+            if (uid == p.sellerId)
+              Text(context.tr('own_product'), textAlign: TextAlign.center)
+            else ...[
+              AppButton(label: context.tr('send_inquiry'), icon: Icons.mail_outline, onPressed: () => _inquiry(context, ref, p.id)),
+              if ((d.sellerName ?? '').isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Text(context.tr('seller_phone_unavailable'), textAlign: TextAlign.center, style: Theme.of(context).textTheme.bodySmall),
+              ],
+            ],
+            const SizedBox(height: 20),
+            Text(context.tr('similar_products'), style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
+            const SizedBox(height: 8),
+            SizedBox(
+              height: 230,
+              child: ref.watch(similarProductsProvider((productId: p.id, category: p.category))).when(
+                    loading: () => const LoadingView(),
+                    error: (error, _) => ErrorView(
+                      error: error,
+                      onRetry: () => ref.invalidate(similarProductsProvider((productId: p.id, category: p.category))),
+                    ),
+                    data: (products) => products.isEmpty
+                        ? Text(context.tr('similar_products_empty'), style: Theme.of(context).textTheme.bodySmall)
+                        : ListView(
+                            scrollDirection: Axis.horizontal,
+                            children: [
+                              for (final product in products)
+                                SizedBox(width: 170, child: Padding(padding: const EdgeInsets.only(right: 12), child: ProductCard(product))),
+                            ],
+                          ),
+                  ),
+            ),
           ]);
         },
       ),

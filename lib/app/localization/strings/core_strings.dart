@@ -2,6 +2,7 @@ const Map<String, Map<String, String>> coreStrings = {
   'uz': {
     'app_name': 'Hosil X', 'settings': 'Sozlamalar', 'language': 'Til', 'theme': 'Mavzu',
     'theme_light': 'Yorug‘', 'theme_dark': 'Tungi', 'theme_system': 'Tizim', 'loading': 'Yuklanmoqda...',
+    'profile_photo': 'Profil rasmini o‘zgartirish', 'about_app': 'Ilova haqida', 'about_app_body': 'Hosil X fermerlar, xaridorlar va agro xizmatlarni bog‘laydi.',
     'retry': 'Qayta urinish', 'save': 'Saqlash', 'cancel': 'Bekor qilish',
     'empty_default': 'Hozircha ma’lumot yo‘q.',
     'error_generic': 'Xatolik yuz berdi. Qayta urinib ko‘ring.',
@@ -14,6 +15,7 @@ const Map<String, Map<String, String>> coreStrings = {
   'ru': {
     'app_name': 'Hosil X', 'settings': 'Настройки', 'language': 'Язык', 'theme': 'Тема',
     'theme_light': 'Светлая', 'theme_dark': 'Тёмная', 'theme_system': 'Системная', 'loading': 'Загрузка...',
+    'profile_photo': 'Изменить фото профиля', 'about_app': 'О приложении', 'about_app_body': 'Hosil X объединяет фермеров, покупателей и агросервисы.',
     'retry': 'Повторить', 'save': 'Сохранить', 'cancel': 'Отмена',
     'empty_default': 'Пока нет данных.',
     'error_generic': 'Произошла ошибка. Повторите попытку.',
@@ -26,6 +28,7 @@ const Map<String, Map<String, String>> coreStrings = {
   'en': {
     'app_name': 'Hosil X', 'settings': 'Settings', 'language': 'Language', 'theme': 'Theme',
     'theme_light': 'Light', 'theme_dark': 'Dark', 'theme_system': 'System', 'loading': 'Loading...',
+    'profile_photo': 'Change profile photo', 'about_app': 'About the app', 'about_app_body': 'Hosil X connects farmers, buyers, and agricultural services.',
     'retry': 'Retry', 'save': 'Save', 'cancel': 'Cancel',
     'empty_default': 'Nothing here yet.',
     'error_generic': 'Something went wrong. Please try again.',

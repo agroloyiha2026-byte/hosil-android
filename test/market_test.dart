@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hosilx/core/format.dart';
 import 'package:hosilx/features/market/market_repository.dart';
+import 'package:hosilx/features/products/product_repository.dart';
 import 'package:hosilx/models/market_models.dart';
 
 void main() {
@@ -26,10 +27,36 @@ void main() {
 
   test('Product.fromMap merges main image and gallery without duplicates', () {
     final p = Product.fromMap({
-      'id': '1', 'title': 'T', 'category': 'fruit', 'product_type': 'olma', 'price': 10, 'currency': 'UZS', 'unit': 'kg',
-      'quantity': 5, 'region': 'R', 'seller_id': 's', 'created_at': '2026-01-01T00:00:00Z', 'image_url': 'a',
-      'product_images': [{'url': 'b', 'sort_order': 2}, {'url': 'a', 'sort_order': 1}],
+      'id': '1',
+      'title': 'T',
+      'category': 'fruit',
+      'product_type': 'olma',
+      'price': 10,
+      'currency': 'UZS',
+      'unit': 'kg',
+      'quantity': 5,
+      'region': 'R',
+      'seller_id': 's',
+      'created_at': '2026-01-01T00:00:00Z',
+      'image_url': 'a',
+      'product_images': [
+        {'url': 'b', 'sort_order': 2},
+        {'url': 'a', 'sort_order': 1}
+      ],
     });
     expect(p.images, ['a', 'b']);
+  });
+
+  test('new listings require an image while edits may keep an existing image',
+      () {
+    expect(
+        hasRequiredListingImage(hasExistingImage: false, selectedImageCount: 0),
+        isFalse);
+    expect(
+        hasRequiredListingImage(hasExistingImage: false, selectedImageCount: 1),
+        isTrue);
+    expect(
+        hasRequiredListingImage(hasExistingImage: true, selectedImageCount: 0),
+        isTrue);
   });
 }

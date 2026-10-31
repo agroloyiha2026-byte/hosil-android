@@ -34,6 +34,22 @@ class InquiryItem {
   }
 }
 
+class ChatMessage {
+  final String id, inquiryId, senderId, body;
+  final DateTime createdAt;
+  final DateTime? readAt;
+  const ChatMessage({required this.id, required this.inquiryId, required this.senderId, required this.body, required this.createdAt, this.readAt});
+
+  factory ChatMessage.fromMap(Map<String, dynamic> map) => ChatMessage(
+        id: map['id'] as String,
+        inquiryId: map['inquiry_id'] as String,
+        senderId: map['sender_id'] as String,
+        body: map['body'] as String,
+        createdAt: DateTime.parse(map['created_at'] as String),
+        readAt: map['read_at'] == null ? null : DateTime.parse(map['read_at'] as String),
+      );
+}
+
 class NotificationItem {
   final String id, type, titleKey;
   final String? body, productId;

@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../app/localization/l10n.dart';
 import '../../core/widgets/widgets.dart';
 import '../../models/market_models.dart';
+import '../../models/stage5_models.dart';
+import '../stage5_providers.dart';
 import 'market_providers.dart';
-import '../../core/widgets/header_band.dart';
 import '../../core/widgets/region_dropdown.dart';
 import '../ads/ad_banner.dart';
-import '../profile/profile_button.dart';
 import 'product_card.dart';
 
 class MarketScreen extends ConsumerStatefulWidget {
@@ -18,7 +19,7 @@ class MarketScreen extends ConsumerStatefulWidget {
 
 class _S extends ConsumerState<MarketScreen> {
   final _scroll = ScrollController();
-  late final _search = TextEditingController(text: ref.read(filtersProvider).query);
+  String _catalog = 'products';
 
   @override
   void initState() {
@@ -33,7 +34,6 @@ class _S extends ConsumerState<MarketScreen> {
   @override
   void dispose() {
     _scroll.dispose();
-    _search.dispose();
     super.dispose();
   }
 
@@ -96,13 +96,76 @@ class _S extends ConsumerState<MarketScreen> {
     );
   }
 
+  Widget _warehouseCatalog(BuildContext context, AsyncValue<List<Warehouse>> state) => state.when(
+        loading: () => const LoadingView(),
+        error: (error, _) => ErrorView(error: error, onRetry: () => ref.invalidate(warehousesProvider)),
+        data: (warehouses) => warehouses.isEmpty
+            ? EmptyView(message: context.tr('no_warehouses'), icon: Icons.warehouse_outlined)
+            : ListView.separated(
+                padding: const EdgeInsets.all(16),
+                itemCount: warehouses.length,
+                separatorBuilder: (_, __) => const SizedBox(height: 10),
+                itemBuilder: (context, index) {
+                  final warehouse = warehouses[index];
+                  return AppCard(
+                    onTap: () => context.push('/warehouse/${warehouse.id}'),
+                    child: Row(
+                      children: [
+                        SizedBox(
+                          width: 76,
+                          height: 76,
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(12),
+                            child: ProductImage(warehouse.imageUrl),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(warehouse.name, maxLines: 1, overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(fontWeight: FontWeight.w800)),
+                              Text(warehouse.region, maxLines: 1, overflow: TextOverflow.ellipsis,
+                                  style: Theme.of(context).textTheme.bodySmall),
+                              const SizedBox(height: 6),
+                              Text(
+                                '${context.tr('free_space')}: ${warehouse.freeTons} ${context.tr('tons')}',
+                                style: Theme.of(context).textTheme.bodySmall,
+                              ),
+                              Text(
+                                warehouse.pricePerTonMonth == null
+                                    ? context.tr('price_na')
+                                    : '${warehouse.pricePerTonMonth} ${warehouse.currency} ${context.tr('price_month')}',
+                                style: TextStyle(fontWeight: FontWeight.w700, color: Theme.of(context).colorScheme.primary),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const Icon(Icons.chevron_right),
+                      ],
+                    ),
+                  );
+                },
+              ),
+      );
+
+  void _selectCatalog(String value) {
+    if (value == 'equipment' || value == 'logistics') {
+      context.push('/services/$value');
+      return;
+    }
+    setState(() => _catalog = value);
+  }
+
   @override
   Widget build(BuildContext context) {
     final st = ref.watch(productsProvider);
     final f = ref.watch(filtersProvider);
-    final scheme = Theme.of(context).colorScheme;
     Widget body;
-    if (st.loading && st.items.isEmpty) {
+    if (_catalog == 'warehouses') {
+      body = _warehouseCatalog(context, ref.watch(warehousesProvider));
+    } else if (st.loading && st.items.isEmpty) {
       body = const LoadingView();
     } else if (st.error != null && st.items.isEmpty) {
       body = ErrorView(error: st.error!, onRetry: () => ref.read(productsProvider.notifier).refresh());
@@ -119,19 +182,44 @@ class _S extends ConsumerState<MarketScreen> {
     return SafeArea(
       top: false,
       child: Column(children: [
-        HeaderBand(
-          child: Row(children: [
-            Expanded(child: TextField(
-              controller: _search, textInputAction: TextInputAction.search,
-              onSubmitted: (v) => ref.read(filtersProvider.notifier).state = f.copyWith(query: v),
-              decoration: InputDecoration(hintText: context.tr('search_hint'), prefixIcon: const Icon(Icons.search), filled: true, fillColor: scheme.surface,
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(14))),
-            )),
-            const SizedBox(width: 8),
-            Badge(isLabelVisible: f.hasActive, child: IconButton.filledTonal(onPressed: _openFilters, icon: const Icon(Icons.tune))),
-            const SizedBox(width: 8),
-            const ProfileButton(),
-          ]),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: ActionChip(
+              avatar: const Icon(Icons.local_pharmacy_outlined),
+              label: Text(context.tr('agroapteka')),
+              onPressed: () => context.push('/agroapteka'),
+            ),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+          child: Row(
+            children: [
+              Expanded(child: Text(context.tr('nav_market'), style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800))),
+              if (_catalog == 'products')
+                Badge(isLabelVisible: f.hasActive, child: IconButton.filledTonal(onPressed: _openFilters, icon: const Icon(Icons.tune))),
+            ],
+          ),
+        ),
+        SizedBox(
+          height: 48,
+          child: ListView(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            scrollDirection: Axis.horizontal,
+            children: [
+              for (final catalog in const ['products', 'warehouses', 'equipment', 'logistics'])
+                Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: ChoiceChip(
+                    label: Text(context.tr('catalog_$catalog')),
+                    selected: _catalog == catalog,
+                    onSelected: (_) => _selectCatalog(catalog),
+                  ),
+                ),
+            ],
+          ),
         ),
         const Padding(padding: EdgeInsets.fromLTRB(16, 4, 16, 0), child: AdBanner(placement: 'market_top')),
         Expanded(child: RefreshIndicator(onRefresh: () => ref.read(productsProvider.notifier).refresh(), child: body)),
